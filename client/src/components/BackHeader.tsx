@@ -11,6 +11,8 @@ interface Props {
 }
 
 export default function BackHeader({ title, subtitle, onBack, dark, right }: Props) {
+  if (!title) return null;
+
   return (
     <div className="flex items-center gap-3 px-5 pt-4 pb-4">
       <button

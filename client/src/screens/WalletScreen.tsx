@@ -1,7 +1,7 @@
 // screens/WalletScreen.tsx
 import { useState } from "react";
 import { Copy, Check, Zap, Send, ArrowDownToLine, TrendingUp, Clock } from "lucide-react";
-import { type Screen } from "../lib/data";
+import { ksh, type Screen } from "../lib/data";
 
 interface Props { dark: boolean; setScreen: (s: Screen) => void }
 
