@@ -1,33 +1,53 @@
 // screens/DashboardScreen.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, ArrowDownToLine, Send, ArrowUpFromLine, Clock, Eye, EyeOff } from "lucide-react";
 import Sparkline from "../components/Sparkline";
 import { TRANSACTIONS, SPARK, ksh, type Screen, type ModalType } from "../lib/data";
 
 interface Props { dark: boolean; setScreen: (s: Screen) => void; setModal: (m: ModalType) => void }
+interface DashboardData { user: { name: string } }
 
 export default function DashboardScreen({ dark, setScreen, setModal }: Props) {
   const [hidden, setHidden] = useState(false);
 
-  const text  = dark ? "text-white"     : "text-slate-800";
-  const sub   = dark ? "text-slate-400" : "text-slate-500";
-  const card  = dark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white border border-slate-200 shadow-sm";
-  const divd  = dark ? "border-slate-700/50" : "border-slate-100";
+  const text = dark ? "text-white" : "text-slate-800";
+  const sub = dark ? "text-slate-400" : "text-slate-500";
+  const card = dark ? "bg-slate-800/60 border border-slate-700/50" : "bg-white border border-slate-200 shadow-sm";
+  const divd = dark ? "border-slate-700/50" : "border-slate-100";
+  const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+
+
+  async function fetchDashboard() {
+    const res = await fetch("/api/dashboard");
+
+    const data = await res.json();
+
+    setDashboard(data);
+  }
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchDashboard();
+  }, []);
+
 
   const actions = [
-    { label: "Fund",     Icon: ArrowDownToLine, color: "text-emerald-400", bg: "bg-emerald-500/10", screen: "fund"     },
-    { label: "Send",     Icon: Send,            color: "text-violet-400",  bg: "bg-violet-500/10",  screen: "send"     },
-    { label: "Withdraw", Icon: ArrowUpFromLine, color: "text-rose-400",    bg: "bg-rose-500/10",    screen: "withdraw" },
-    { label: "History",  Icon: Clock,           color: "text-amber-400",   bg: "bg-amber-500/10",   screen: "history"  },
+    { label: "Fund", Icon: ArrowDownToLine, color: "text-emerald-400", bg: "bg-emerald-500/10", screen: "fund" },
+    { label: "Send", Icon: Send, color: "text-violet-400", bg: "bg-violet-500/10", screen: "send" },
+    { label: "Withdraw", Icon: ArrowUpFromLine, color: "text-rose-400", bg: "bg-rose-500/10", screen: "withdraw" },
+    { label: "History", Icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10", screen: "history" },
   ] as const;
+
+  const time = new Date().getHours();
+  const greeting = time < 12 ? "Good morning" : time < 18 ? "Good afternoon" : "Good evening";
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full">
       {/* Page header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className={`text-sm ${sub}`}>Good morning 👋</p>
-          <h1 className={`text-2xl font-bold ${text}`}>Jane Wanjiru</h1>
+          <p className={`text-sm ${sub}`}>{greeting} 👋</p>
+          <h1 className={`text-2xl font-bold ${text}`}> {dashboard?.user?.name || "Jane Wanjiru"}</h1>
         </div>
         <button onClick={() => setModal("notif")}
           className={`relative p-2.5 rounded-xl transition-colors ${dark ? "bg-slate-800 hover:bg-slate-700" : "bg-slate-100 hover:bg-slate-200"}`}>
@@ -66,9 +86,9 @@ export default function DashboardScreen({ dark, setScreen, setModal }: Props) {
 
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: "Savings",  val: "48,200", icon: "🏦" },
+              { label: "Savings", val: "48,200", icon: "🏦" },
               { label: "Invested", val: "22,150", icon: "📈" },
-              { label: "Locked",   val: "10,000", icon: "🔒" },
+              { label: "Locked", val: "10,000", icon: "🔒" },
             ].map(s => (
               <div key={s.label} className="bg-white/5 rounded-xl px-4 py-3 border border-white/6">
                 <p className="text-slate-500 text-xs mb-1">{s.icon} {s.label}</p>
