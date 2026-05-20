@@ -2,9 +2,15 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import BackHeader from "../components/BackHeader";
-import { CONTACTS, ksh, type Screen, type ModalType } from "../lib/data";
+import { ksh, type Screen, type ModalType } from "../lib/data";
 
 interface ScreenProps { dark: boolean; setScreen: (s: Screen) => void; setModal: (m: ModalType) => void }
+
+const CONTACTS = [
+  { name: "Jane Wanjiru", initials: "JW", color: "bg-emerald-500" },
+  { name: "Samuel Njoroge", initials: "SN", color: "bg-sky-500" },
+  { name: "Aisha Omar", initials: "AO", color: "bg-violet-500" },
+] as const;
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -169,7 +175,7 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
 // ── Send Screen ────────────────────────────────────────────────────────────
 
 export function SendScreen({ dark, setScreen, setModal }: ScreenProps) {
-  const [contact, setContact] = useState<typeof CONTACTS[0] | null>(null);
+  const [contact, setContact] = useState<(typeof CONTACTS)[number] | null>(null);
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
 

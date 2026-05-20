@@ -1,30 +1,57 @@
 // screens/WalletScreen.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check, Zap, Send, ArrowDownToLine, TrendingUp, Clock } from "lucide-react";
-import { type Screen } from "../lib/data";
+import { type Screen, type Wallet, type Transaction, ksh } from "../lib/data";
+import { apiGet } from "../lib/api";
 
 interface Props { dark: boolean; setScreen: (s: Screen) => void }
 
-const WALLET_ID = "MVP-24K9-J8W2";
-
 export default function WalletScreen({ dark, setScreen }: Props) {
     const [copied, setCopied] = useState(false);
+    const [wallet, setWallet] = useState<Wallet | null>(null);
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
 
     const text = dark ? "text-white" : "text-slate-800";
     const sub = dark ? "text-slate-400" : "text-slate-500";
     const card = dark ? "bg-slate-800/70 border border-slate-700/50" : "bg-white border border-slate-100 shadow-sm";
 
+    useEffect(() => {
+        const loadWallet = async () => {
+            const meRes = await apiGet<{ user: unknown; wallet: Wallet }>("/auth/me");
+            const txRes = await apiGet<{ transactions: Transaction[] }>("/transactions?limit=100");
+
+            if (meRes.success && meRes.data?.wallet) {
+                setWallet(meRes.data.wallet);
+            }
+
+            if (txRes.success && txRes.data) {
+                setTransactions(txRes.data.transactions);
+            }
+        };
+
+        loadWallet();
+    }, []);
+
     const handleCopy = () => {
         setCopied(true);
+        navigator.clipboard.writeText(wallet ? String(wallet.id) : "");
         setTimeout(() => setCopied(false), 2000);
     };
+
+    const totalSent = transactions
+        .filter((t) => t.type === "transfer_sent" || t.type === "withdrawal")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+    const totalReceived = transactions
+        .filter((t) => t.type === "deposit" || t.type === "transfer_received")
+        .reduce((sum, tx) => sum + tx.amount, 0);
+    const savingsRate = totalReceived === 0 ? 0 : Math.round(((totalReceived - totalSent) / totalReceived) * 100);
+    const txCount = transactions.length;
 
     return (
         <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
             <div className="max-w-3xl px-5 pt-6 mx-auto">
                 <h2 className={`text-xl font-bold mb-5 ${text}`}>My Wallet</h2>
 
-                {/* Virtual card */}
                 <div className="relative p-6 mb-4 overflow-hidden border rounded-2xl bg-slate-900 border-slate-700/50">
                     <div className="absolute w-40 h-40 rounded-full pointer-events-none -top-10 -right-10 bg-violet-500/10" />
                     <div className="absolute w-32 h-32 rounded-full pointer-events-none -bottom-8 -left-4 bg-emerald-500/8" />
@@ -42,13 +69,13 @@ export default function WalletScreen({ dark, setScreen }: Props) {
                     </div>
 
                     <p className="text-slate-300 tracking-[0.2em] text-base font-mono mb-6">
-                        •••• •••• •••• 4829
+                        •••• •••• •••• {wallet ? String(wallet.id).slice(-4) : "4829"}
                     </p>
 
                     <div className="flex items-end justify-between">
                         <div>
                             <p className="text-slate-500 text-[9px] tracking-widest mb-1">CARD HOLDER</p>
-                            <p className="text-sm font-semibold tracking-wide text-slate-200">JANE WANJIRU</p>
+                            <p className="text-sm font-semibold tracking-wide text-slate-200">{wallet ? "MVP User" : "Loading..."}</p>
                         </div>
                         <div>
                             <p className="text-slate-500 text-[9px] tracking-widest mb-1">EXPIRES</p>
@@ -61,14 +88,13 @@ export default function WalletScreen({ dark, setScreen }: Props) {
                     </div>
                 </div>
 
-                {/* Wallet ID */}
                 <div className={`rounded-2xl p-4 flex items-center gap-3 mb-4 ${card}`}>
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${dark ? "bg-violet-500/12" : "bg-violet-50"}`}>
                         <span className="text-lg">🔷</span>
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className={`text-xs ${sub}`}>Wallet ID</p>
-                        <p className={`text-sm font-mono font-semibold tracking-wider ${text}`}>{WALLET_ID}</p>
+                        <p className={`text-sm font-mono font-semibold tracking-wider ${text}`}>{wallet ? wallet.id : "Loading..."}</p>
                     </div>
                     <button
                         onClick={handleCopy}
@@ -81,14 +107,13 @@ export default function WalletScreen({ dark, setScreen }: Props) {
                     </button>
                 </div>
 
-                {/* Stats */}
                 <div className="grid grid-cols-2 gap-3 mb-5 sm:grid-cols-4">
                     {[
-                        { label: "Total Sent", val: "KSh 142K", Icon: Send, color: "text-violet-400", bg: "bg-violet-500/10" },
-                        { label: "Total Received", val: "KSh 387K", Icon: ArrowDownToLine, color: "text-emerald-400", bg: "bg-emerald-500/10" },
-                        { label: "Transactions", val: "284", Icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
-                        { label: "Savings Rate", val: "18.4%", Icon: TrendingUp, color: "text-sky-400", bg: "bg-sky-500/10" },
-                    ].map(s => (
+                        { label: "Total Sent", val: totalSent ? ksh(totalSent) : "—", Icon: Send, color: "text-violet-400", bg: "bg-violet-500/10" },
+                        { label: "Total Received", val: totalReceived ? ksh(totalReceived) : "—", Icon: ArrowDownToLine, color: "text-emerald-400", bg: "bg-emerald-500/10" },
+                        { label: "Transactions", val: txCount ? String(txCount) : "—", Icon: Clock, color: "text-amber-400", bg: "bg-amber-500/10" },
+                        { label: "Savings Rate", val: `${savingsRate}%`, Icon: TrendingUp, color: "text-sky-400", bg: "bg-sky-500/10" },
+                    ].map((s) => (
                         <div key={s.label} className={`rounded-2xl p-4 ${card}`}>
                             <div className={`w-8 h-8 rounded-xl ${s.bg} flex items-center justify-center mb-3`}>
                                 <s.Icon size={16} className={s.color} />
@@ -99,7 +124,6 @@ export default function WalletScreen({ dark, setScreen }: Props) {
                     ))}
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-3">
                     <button
                         onClick={() => setScreen("fund")}

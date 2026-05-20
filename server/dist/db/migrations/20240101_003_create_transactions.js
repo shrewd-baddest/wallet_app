@@ -1,0 +1,20 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.down = exports.up = void 0;
+const up = (knex) => knex.schema.createTable('transactions', (t) => {
+    t.bigIncrements('id').primary();
+    t.string('transaction_code', 100).unique().nullable();
+    t.integer('wallet_id').unsigned().notNullable();
+    t.enu('type', ['deposit', 'withdrawal', 'transfer_sent', 'transfer_received']).notNullable();
+    t.decimal('amount', 15, 2).notNullable();
+    t.decimal('balance_before', 15, 2).nullable();
+    t.decimal('balance_after', 15, 2).nullable();
+    t.enu('status', ['pending', 'completed', 'failed']).defaultTo('pending');
+    t.text('description').nullable();
+    t.string('reference_id', 100).nullable();
+    t.timestamp('created_at').defaultTo(knex.fn.now());
+    t.foreign('wallet_id').references('wallets.id');
+});
+exports.up = up;
+const down = (knex) => knex.schema.dropTableIfExists('transactions');
+exports.down = down;
