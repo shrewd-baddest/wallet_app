@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import db from '../../db';
 import mpesa from '../mpesa/mpesa.service';
 import logger from '../../utils/logger';
@@ -25,9 +26,17 @@ export const initiateDeposit = async (req: Request, res: Response, next: NextFun
       .first();
     if (!wallet) { error(res, 'Wallet not found or suspended', 404); return; }
 
-    const mpesaResponse = await mpesa.stkPush(phone_number, amount);
+    let mpesaResponse: any;
+    try {
+      mpesaResponse = await mpesa.stkPush(phone_number, amount);
+    } catch (e: any) {
+      logger.error('STK push exception:', e?.message || e);
+      error(res, 'STK push failed (external provider error)', 502);
+      return;
+    }
 
     if (mpesaResponse.ResponseCode !== '0') {
+      logger.error('STK push returned non-success ResponseCode:', mpesaResponse.ResponseCode, mpesaResponse.errorMessage ?? mpesaResponse);
       error(res, mpesaResponse.errorMessage || 'STK push failed', 502);
       return;
     }
@@ -44,13 +53,14 @@ export const initiateDeposit = async (req: Request, res: Response, next: NextFun
     });
 
     await db('transactions').insert({
-      wallet_id:      wallet.id,
-      type:           'deposit',
+      wallet_id:       wallet.id,
+      transaction_code: CheckoutRequestID,
+      type:            'deposit',
       amount,
-      balance_before: wallet.balance,
-      status:         'pending',
-      description:    'M-Pesa deposit via STK push',
-      reference_id:   CheckoutRequestID,
+      balance_before:  wallet.balance,
+      status:          'pending',
+      description:     'M-Pesa deposit via STK push',
+      reference_id:    CheckoutRequestID,
     });
 
     logger.info(`STK push initiated for wallet ${wallet.id}, CheckoutRequestID: ${CheckoutRequestID}`);
@@ -100,8 +110,11 @@ export const initiateWithdrawal = async (req: Request, res: Response, next: Next
         mpesa_transaction_id: mpesaTxId,
       });
 
+      const txCode = `WDL-${uuidv4().replace(/-/g, '').slice(0, 20).toUpperCase()}`;
+
       const [txId] = await trx('transactions').insert({
         wallet_id:      wallet.id,
+        transaction_code: txCode,
         type:           'withdrawal',
         amount,
         balance_before: wallet.balance,
@@ -158,6 +171,28 @@ export const queryStkStatus = async (req: Request, res: Response, next: NextFunc
       mpesa_receipt_number: mpesaTx.mpesa_receipt_number,
       amount:               mpesaTx.amount,
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ── Query withdrawal status (client polling) ───────────────────────────────
+export const queryWithdrawStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  const { withdrawal_id } = req.params as { withdrawal_id: string };
+
+  try {
+    const withdrawal = await db('withdrawals').where({ id: Number(withdrawal_id) }).first();
+    if (!withdrawal) { error(res, 'Withdrawal not found', 404); return; }
+
+    const tx = await db('transactions')
+      .where({ wallet_id: withdrawal.wallet_id, type: 'withdrawal' })
+      .whereIn('status', ['pending', 'processing', 'completed', 'failed'])
+      .orderBy('created_at', 'desc')
+      .first();
+
+    const status = withdrawal.status ?? tx?.status ?? 'pending';
+
+    success(res, { status, withdrawal_id: Number(withdrawal_id), transaction_code: tx?.transaction_code ?? null });
   } catch (err) {
     next(err);
   }

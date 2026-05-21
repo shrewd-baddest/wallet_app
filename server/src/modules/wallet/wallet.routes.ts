@@ -32,6 +32,13 @@ router.post(
 );
 
 router.get(
+  '/withdraw/status/:withdrawal_id',
+  [param('withdrawal_id').isInt()],
+  validate,
+  ctrl.queryWithdrawStatus
+);
+
+router.get(
   '/deposit/status/:checkout_request_id',
   [param('checkout_request_id').notEmpty()],
   validate,

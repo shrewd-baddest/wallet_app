@@ -1,8 +1,8 @@
 // screens/TransactionScreens.tsx
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import BackHeader from "../components/BackHeader";
-import { apiPost } from "../lib/api";
+import { apiPost, apiGet } from "../lib/api";
 import { ksh, type Screen, type ModalType } from "../lib/data";
 
 interface ScreenProps { dark: boolean; setScreen: (s: Screen) => void; setModal: (m: ModalType) => void }
@@ -133,7 +133,10 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
   const [method, setMethod] = useState<FundMethod>("mpesa");
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
+  const [depositMessage, setDepositMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   const card = dark ? "bg-slate-800/70 border border-slate-700/60" : "bg-white border border-slate-100 shadow-sm";
   const inp = dark
@@ -153,22 +156,76 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
 
     setLoading(true);
     setError(null);
+    setDepositMessage('Enter your M-Pesa PIN on your phone and wait for confirmation.');
 
     const res = await apiPost("/wallet/deposit", {
       amount: Number(amount),
       phone_number: `254${normalized}`,
     });
 
+    if (!res.success) {
+      setLoading(false);
+      setDepositMessage(null);
+      setError(res.message || "Unable to initiate deposit.");
+      return;
+    }
+
+    const checkoutId = res.data?.checkout_request_id as string | undefined;
+    if (!checkoutId) {
+      setLoading(false);
+      setDepositMessage(null);
+      setError("Deposit started but no checkout reference was returned.");
+      return;
+    }
+
+    setCheckoutRequestId(checkoutId);
+    pollDepositStatus(checkoutId);
+  };
+
+  const pollDepositStatus = async (checkoutId: string, attempt = 0): Promise<void> => {
+    if (attempt >= 30 || !mountedRef.current) {
+      setLoading(false);
+      setDepositMessage('Still waiting for M-Pesa confirmation. Please keep the app open and try again if needed.');
+      return;
+    }
+
+    const statusRes = await apiGet<{ status: string }>(`/wallet/deposit/status/${checkoutId}`);
+    if (!mountedRef.current) return;
+
+    if (!statusRes.success) {
+      setLoading(false);
+      setDepositMessage(null);
+      setError(statusRes.message || 'Unable to verify deposit status.');
+      return;
+    }
+
+    const status = statusRes.data?.status;
+    if (status === 'pending') {
+      setDepositMessage('Waiting for M-Pesa confirmation...');
+      setTimeout(() => pollDepositStatus(checkoutId, attempt + 1), 2000);
+      return;
+    }
+
+    setCheckoutRequestId(null);
+    setDepositMessage(null);
     setLoading(false);
 
-    if (res.success) {
-      setModal("fundSuccess");
-      setAmount("");
-      setPhone("");
-    } else {
-      setError(res.message || "Unable to initiate deposit.");
+    if (status === 'completed') {
+      setModal('fundSuccess');
+      setAmount('');
+      setPhone('');
+      return;
     }
+
+    setError('Deposit failed or M-Pesa PIN entry was canceled. Please try again.');
   };
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   return (
     <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
@@ -203,6 +260,7 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
           </div>
 
           {error && <p className="text-sm text-rose-400">{error}</p>}
+          {depositMessage && !error && <p className="text-sm text-slate-400">{depositMessage}</p>}
 
           <PrimaryBtn
             label={loading ? "Processing..." : amount ? `Fund ${ksh(Number(amount))} →` : "Enter amount"}
@@ -387,6 +445,10 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [withdrawalId, setWithdrawalId] = useState<number | null>(null);
+  const [withdrawMessage, setWithdrawMessage] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
   const sub = dark ? "text-slate-400" : "text-slate-500";
 
@@ -410,16 +472,74 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
       phone_number: `254${normalized}`,
     });
 
+    if (!res.success) {
+      setLoading(false);
+      setError(res.message || "Unable to initiate withdrawal.");
+      return;
+    }
+
+    const wid = res.data?.withdrawal_id as number | undefined;
+    if (!wid) {
+      setLoading(false);
+      setError('Withdrawal started but no withdrawal id returned.');
+      return;
+    }
+
+    setWithdrawalId(wid);
+    setWithdrawMessage('Processing withdrawal. This may take a moment.');
+    pollWithdrawStatus(wid);
+  };
+
+  const pollWithdrawStatus = async (wid: number, attempt = 0): Promise<void> => {
+    if (attempt >= 30 || !mountedRef.current) {
+      setLoading(false);
+      setWithdrawMessage('Still waiting for withdrawal confirmation. Please check later.');
+      return;
+    }
+
+    const statusRes = await apiGet<{ status: string }>(`/wallet/withdraw/status/${wid}`);
+    if (!mountedRef.current) return;
+
+    if (!statusRes.success) {
+      setLoading(false);
+      setWithdrawMessage(null);
+      setError(statusRes.message || 'Unable to verify withdrawal status.');
+      return;
+    }
+
+    const status = statusRes.data?.status;
+    if (status === 'pending' || status === 'processing') {
+      setWithdrawMessage('Waiting for payout confirmation...');
+      setTimeout(() => pollWithdrawStatus(wid, attempt + 1), 2000);
+      return;
+    }
+
+    setWithdrawalId(null);
+    setWithdrawMessage(null);
     setLoading(false);
 
-    if (res.success) {
-      setModal("withdrawSuccess");
-      setAmount("");
-      setPhone("");
-    } else {
-      setError(res.message || "Unable to initiate withdrawal.");
+    if (status === 'completed') {
+      setModal('withdrawSuccess');
+      setAmount('');
+      setPhone('');
+      return;
     }
+
+    setError('Withdrawal failed. Please contact support or try again.');
   };
+
+  // Fetch wallet balance when the component mounts
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const res = await apiGet<{ wallet: { balance: number } }>("/wallet");
+      if (!mounted) return;
+      if (res.success && res.data?.wallet) {
+        setBalance(Number(res.data.wallet.balance));
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   return (
     <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
@@ -430,7 +550,7 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
           <div className={`rounded-2xl p-4 ${dark ? "bg-emerald-500/8 border border-emerald-500/20" : "bg-emerald-50 border border-emerald-100"}`}>
             <p className={`text-xs mb-1 ${sub}`}>Available Balance</p>
             <p className={`text-2xl font-extrabold ${dark ? "text-emerald-400" : "text-emerald-700"}`}>
-              KSh 234,580
+              {balance !== null ? ksh(balance) : "Loading..."}
             </p>
             <div className="mt-3">
               <div className="flex justify-between text-xs mb-1.5">
