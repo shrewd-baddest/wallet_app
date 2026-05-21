@@ -126,6 +126,14 @@ export default function Modal({ type, onClose }: Props) {
             onClose={onClose}
           />
         )}
+        {type === "sendSuccess" && (
+          <SuccessSheet
+            emoji="✅" title="Transfer Sent!"
+            body="Your money has been sent successfully."
+            ref="Ref: MVP-TXN-8422A"
+            onClose={onClose}
+          />
+        )}
         {type === "withdrawConfirm" && (
           <ConfirmSheet
             emoji="⬆️" title="Confirm Withdrawal"
@@ -133,6 +141,14 @@ export default function Modal({ type, onClose }: Props) {
             amount="KSh 5,000"
             cta="Withdraw Now"
             danger
+            onClose={onClose}
+          />
+        )}
+        {type === "withdrawSuccess" && (
+          <SuccessSheet
+            emoji="💸" title="Withdrawal Initiated"
+            body="Your withdrawal request has been sent."
+            ref="Ref: MVP-TXN-9947W"
             onClose={onClose}
           />
         )}

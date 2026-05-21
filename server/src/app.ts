@@ -15,6 +15,7 @@ import transferRoutes from './modules/transfers/transfers.routes';
 import mpesaRoutes from './modules/mpesa/mpesa.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import dashboardRoutes from './modules/dashboard/dashboard.routes';
+import profileRoutes from './modules/profile/profile.routes';
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/transfers', transferRoutes);
 app.use('/api/mpesa', mpesaRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api/admin', adminRoutes);
 
 // ── 404 handler ────────────────────────────────────────────────────────────

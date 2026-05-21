@@ -20,14 +20,19 @@ const getAccessToken = async (): Promise<string> => {
   if (_token && Date.now() < _tokenExpiry) return _token;
 
   const creds = Buffer.from(`${KEY}:${SECRET}`).toString('base64');
-  const { data } = await axios.get<{ access_token: string; expires_in: number }>(
-    `${BASE}/oauth/v1/generate?grant_type=client_credentials`,
-    { headers: { Authorization: `Basic ${creds}` } }
-  );
+  try {
+    const { data } = await axios.get<{ access_token: string; expires_in: number }>(
+      `${BASE}/oauth/v1/generate?grant_type=client_credentials`,
+      { headers: { Authorization: `Basic ${creds}` } }
+    );
 
-  _token       = data.access_token;
-  _tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-  return _token;
+    _token = data.access_token;
+    _tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
+    return _token;
+  } catch (err: any) {
+    logger.error('M-Pesa token fetch failed:', err.message || err);
+    throw err;
+  }
 };
 
 // ── Timestamp helper ───────────────────────────────────────────────────────
@@ -68,12 +73,22 @@ export const stkPush = async (
   };
 
   logger.debug(`STK push → ${phoneNumber} KES ${amount}`);
+  try {
+    const { data } = await axios.post(`${BASE}/mpesa/stkpush/v1/processrequest`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  const { data } = await axios.post(`${BASE}/mpesa/stkpush/v1/processrequest`, payload, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return data;
+    return data;
+  } catch (err: any) {
+    logger.error('M-Pesa STK push failed:', err.message || err);
+    if (err.response) {
+      return {
+        ResponseCode: String(err.response.status),
+        errorMessage: err.response.data?.message || JSON.stringify(err.response.data || {}),
+      };
+    }
+    return { ResponseCode: 'ERR', errorMessage: err.message || 'Unknown error' };
+  }
 };
 
 // ── STK query ──────────────────────────────────────────────────────────────
@@ -113,12 +128,22 @@ export const b2cPayment = async (
   };
 
   logger.debug(`B2C payout → ${phoneNumber} KES ${amount}`);
+  try {
+    const { data } = await axios.post(`${BASE}/mpesa/b2c/v3/paymentrequest`, payload, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
 
-  const { data } = await axios.post(`${BASE}/mpesa/b2c/v3/paymentrequest`, payload, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return data;
+    return data;
+  } catch (err: any) {
+    logger.error('M-Pesa B2C payment failed:', err.message || err);
+    if (err.response) {
+      return {
+        ResponseCode: String(err.response.status),
+        errorMessage: err.response.data?.message || JSON.stringify(err.response.data || {}),
+      };
+    }
+    return { ResponseCode: 'ERR', errorMessage: err.message || 'Unknown error' };
+  }
 };
 
 export default { getAccessToken, stkPush, stkQuery, b2cPayment };

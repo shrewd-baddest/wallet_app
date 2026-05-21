@@ -20,6 +20,7 @@ export const clearToken = (): void => {
 
 const buildHeaders = (extra?: HeadersInit): HeadersInit => {
   const token = getToken();
+  console.log("API token", token ? "present" : "missing");
   return {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -28,18 +29,22 @@ const buildHeaders = (extra?: HeadersInit): HeadersInit => {
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResult<T>> {
-  const res = await fetch(`/api${path}`, {
+  const url = `/api${path}`;
+  console.log("API request", options.method ?? 'GET', url);
+
+  const res = await fetch(url, {
     credentials: 'include',
     ...options,
     headers: buildHeaders(options.headers as HeadersInit),
   });
 
   const body = await res.json().catch(() => ({}));
+  console.log("API response", res.status, url, body);
 
   if (!res.ok) {
     return {
       success: false,
-      message: (body && (body.message || body.error)) ?? `Request failed with status ${res.status}`,
+      message: (body && (body.errors?.[0].message || body.message)) ?? `Request failed with status ${res.status}`,
     };
   }
 

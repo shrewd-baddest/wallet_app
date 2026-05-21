@@ -10,18 +10,14 @@ export const getProfile = async (
 
   try {
 
-    /*
-    =========================================
-    AUTH USER
-    =========================================
-    */
+    
+    // AUTH USER
+    
     const userId = (req as any).user.id;
 
-    /*
-    =========================================
-    GET USER
-    =========================================
-    */
+ 
+    // GET USER
+    
     const user = await db("users")
       .where("id", userId)
       .select(
@@ -41,11 +37,9 @@ export const getProfile = async (
       });
     }
 
-    /*
-    =========================================
-    GET WALLET
-    =========================================
-    */
+    
+    // GET WALLET
+     
     const wallet = await db("wallets")
       .where("user_id", userId)
       .select(
@@ -55,33 +49,27 @@ export const getProfile = async (
       )
       .first();
 
-    /*
-    =========================================
-    REFERRAL MOCK DATA
-    =========================================
-    */
+    
+    // REFERRAL MOCK DATA
+     
     const referral = {
       code: "JANE500",
       total_referrals: 3,
       total_earned: 1500,
     };
 
-    /*
-    =========================================
-    KYC MOCK
-    =========================================
-    */
+    
+    // KYC MOCK
+     
     const kyc = {
       progress: 85,
       next_step:
         "Upload utility bill to unlock KSh 500K limit",
     };
 
-    /*
-    =========================================
-    RESPONSE
-    =========================================
-    */
+    
+    // RESPONSE
+     
     return res.status(200).json({
 
       success: true,

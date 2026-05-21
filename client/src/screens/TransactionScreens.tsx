@@ -2,15 +2,23 @@
 import { useState } from "react";
 import { Check } from "lucide-react";
 import BackHeader from "../components/BackHeader";
+import { apiPost } from "../lib/api";
 import { ksh, type Screen, type ModalType } from "../lib/data";
 
 interface ScreenProps { dark: boolean; setScreen: (s: Screen) => void; setModal: (m: ModalType) => void }
 
 const CONTACTS = [
-  { name: "Jane Wanjiru", initials: "JW", color: "bg-emerald-500" },
-  { name: "Samuel Njoroge", initials: "SN", color: "bg-sky-500" },
-  { name: "Aisha Omar", initials: "AO", color: "bg-violet-500" },
+  { name: "Jane Wanjiru", initials: "JW", color: "bg-emerald-500", phone: "254712345678" },
+  { name: "Samuel Njoroge", initials: "SN", color: "bg-sky-500", phone: "254723456789" },
+  { name: "Aisha Omar", initials: "AO", color: "bg-violet-500", phone: "254734567890" },
 ] as const;
+
+const normalizeKenyanPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (digits.startsWith("0") && digits.length === 10) return digits.slice(1);
+  if (digits.startsWith("254") && digits.length === 12) return digits.slice(3);
+  return digits;
+};
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -123,11 +131,44 @@ type FundMethod = typeof FUND_METHODS[number]["id"];
 export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<FundMethod>("mpesa");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const card = dark ? "bg-slate-800/70 border border-slate-700/60" : "bg-white border border-slate-100 shadow-sm";
   const inp = dark
     ? "bg-slate-700/60 border border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500"
     : "bg-slate-100 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500";
+
+  const handleFund = async () => {
+    const normalized = normalizeKenyanPhone(phone);
+    if (!amount || Number(amount) <= 0) {
+      setError("Enter an amount to fund your wallet.");
+      return;
+    }
+    if (normalized.length !== 9) {
+      setError("Enter a valid 9-digit Kenyan phone number.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const res = await apiPost("/wallet/deposit", {
+      amount: Number(amount),
+      phone_number: `254${normalized}`,
+    });
+
+    setLoading(false);
+
+    if (res.success) {
+      setModal("fundSuccess");
+      setAmount("");
+      setPhone("");
+    } else {
+      setError(res.message || "Unable to initiate deposit.");
+    }
+  };
 
   return (
     <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
@@ -144,24 +185,29 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
             <MethodSelector dark={dark} options={[...FUND_METHODS]} value={method} onChange={setMethod} />
           </div>
 
-          {method === "mpesa" && (
-            <div className={`rounded-2xl p-4 ${card}`}>
-              <p className={`text-xs font-medium mb-2 ${dark ? "text-slate-400" : "text-slate-500"}`}>M-Pesa Number</p>
-              <div className="flex gap-2">
-                <span className={`flex items-center px-3 rounded-xl text-sm font-medium
-                  ${dark ? "bg-slate-700 text-slate-300 border border-slate-600" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
-                  🇰🇪 +254
-                </span>
-                <input className={`flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-colors ${inp}`}
-                  placeholder="712 345 678" />
-              </div>
+          <div className={`rounded-2xl p-4 ${card}`}>
+            <p className={`text-xs font-medium mb-2 ${dark ? "text-slate-400" : "text-slate-500"}`}>Phone Number</p>
+            <div className="flex gap-2">
+              <span className={`flex items-center px-3 rounded-xl text-sm font-medium
+                ${dark ? "bg-slate-700 text-slate-300 border border-slate-600" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
+                🇰🇪 +254
+              </span>
+              <input
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                placeholder="712345678"
+                inputMode="numeric"
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-colors ${inp}`}
+              />
             </div>
-          )}
+          </div>
+
+          {error && <p className="text-sm text-rose-400">{error}</p>}
 
           <PrimaryBtn
-            label={amount ? `Fund ${ksh(Number(amount))} →` : "Enter amount"}
-            onClick={() => setModal("fundSuccess")}
-            disabled={!amount}
+            label={loading ? "Processing..." : amount ? `Fund ${ksh(Number(amount))} →` : "Enter amount"}
+            onClick={handleFund}
+            disabled={!amount || loading}
           />
           <p className={`text-center text-xs ${dark ? "text-slate-500" : "text-slate-400"}`}>
             🔒 Secured by 256-bit SSL
@@ -176,14 +222,50 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
 
 export function SendScreen({ dark, setScreen, setModal }: ScreenProps) {
   const [contact, setContact] = useState<(typeof CONTACTS)[number] | null>(null);
+  const [recipientPhone, setRecipientPhone] = useState("");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const card = dark ? "bg-slate-800/70 border border-slate-700/60" : "bg-white border border-slate-100 shadow-sm";
   const inp = dark
     ? "bg-slate-700/60 border border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
     : "bg-slate-100 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500 focus:outline-none";
   const sub = dark ? "text-slate-400" : "text-slate-500";
+
+  const handleSend = async () => {
+    const normalized = normalizeKenyanPhone(contact?.phone ?? recipientPhone);
+    if (normalized.length !== 9) {
+      setError("Enter a valid 9-digit Kenyan recipient number.");
+      return;
+    }
+    if (!amount || Number(amount) <= 0) {
+      setError("Enter an amount to send.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const res = await apiPost("/transfers/send", {
+      recipient_phone: `254${normalized}`,
+      amount: Number(amount),
+      description: note || undefined,
+    });
+
+    setLoading(false);
+
+    if (res.success) {
+      setModal("sendSuccess");
+      setContact(null);
+      setRecipientPhone("");
+      setAmount("");
+      setNote("");
+    } else {
+      setError(res.message || "Unable to send funds.");
+    }
+  };
 
   return (
     <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
@@ -197,10 +279,14 @@ export function SendScreen({ dark, setScreen, setModal }: ScreenProps) {
               {CONTACTS.map(c => (
                 <button
                   key={c.name}
-                  onClick={() => setContact(contact?.name === c.name ? null : c)}
+                  onClick={() => {
+                    const next = contact?.name === c.name ? null : c;
+                    setContact(next);
+                    setRecipientPhone(next ? next.phone : "");
+                  }}
                   className="flex flex-col items-center gap-1.5 shrink-0"
                 >
-                  <div className={`w-[52px] h-[52px] rounded-2xl ${c.color} flex items-center justify-center font-bold text-sm text-white
+                  <div className={`w-13 h-13 rounded-2xl ${c.color} flex items-center justify-center font-bold text-sm text-white
                     transition-all ${contact?.name === c.name ? "ring-2 ring-offset-2 ring-emerald-500" : "opacity-80"}`}>
                     {c.initials}
                   </div>
@@ -222,13 +308,24 @@ export function SendScreen({ dark, setScreen, setModal }: ScreenProps) {
                 </div>
                 <div className="flex-1">
                   <p className={`text-sm font-semibold ${dark ? "text-white" : "text-slate-800"}`}>{contact.name}</p>
-                  <p className={`text-xs ${sub}`}>+254 7•• ••• •••</p>
+                  <p className={`text-xs ${sub}`}>{`+${contact.phone}`}</p>
                 </div>
-                <button onClick={() => setContact(null)} className={`text-xs px-2 py-1 rounded-lg ${dark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}>✕</button>
+                <button onClick={() => { setContact(null); setRecipientPhone(""); }} className={`text-xs px-2 py-1 rounded-lg ${dark ? "bg-slate-700 text-slate-400" : "bg-slate-100 text-slate-500"}`}>✕</button>
               </div>
             ) : (
-              <input className={`w-full px-4 py-2.5 rounded-xl text-sm transition-colors ${inp}`}
-                placeholder="+254 700 000 000" />
+              <div className="flex gap-2">
+                <span className={`flex items-center px-3 rounded-xl text-sm font-medium
+                  ${dark ? "bg-slate-700 text-slate-300 border border-slate-600" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
+                  🇰🇪 +254
+                </span>
+                <input
+                  value={recipientPhone}
+                  onChange={e => setRecipientPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                  placeholder="712345678"
+                  inputMode="numeric"
+                  className={`flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-colors ${inp}`}
+                />
+              </div>
             )}
           </div>
 
@@ -262,10 +359,12 @@ export function SendScreen({ dark, setScreen, setModal }: ScreenProps) {
             </div>
           )}
 
+          {error && <p className="text-sm text-rose-400">{error}</p>}
+
           <PrimaryBtn
-            label={amount ? `Send ${ksh(Number(amount))} →` : "Enter amount"}
-            onClick={() => setModal("sendConfirm")}
-            disabled={!amount}
+            label={loading ? "Sending..." : amount ? `Send ${ksh(Number(amount))} →` : "Enter amount"}
+            onClick={handleSend}
+            disabled={!amount || loading}
           />
         </div>
       </div>
@@ -285,8 +384,42 @@ type WithdrawDest = typeof WITHDRAW_OPTS[number]["id"];
 export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
   const [amount, setAmount] = useState("");
   const [dest, setDest] = useState<WithdrawDest>("mpesa");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const sub = dark ? "text-slate-400" : "text-slate-500";
+
+  const handleWithdraw = async () => {
+    const normalized = normalizeKenyanPhone(phone);
+    if (!amount || Number(amount) <= 0) {
+      setError("Enter an amount to withdraw.");
+      return;
+    }
+
+    if (normalized.length !== 9) {
+      setError("Enter a valid 9-digit Kenyan phone number.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    const res = await apiPost("/wallet/withdraw", {
+      amount: Number(amount),
+      phone_number: `254${normalized}`,
+    });
+
+    setLoading(false);
+
+    if (res.success) {
+      setModal("withdrawSuccess");
+      setAmount("");
+      setPhone("");
+    } else {
+      setError(res.message || "Unable to initiate withdrawal.");
+    }
+  };
 
   return (
     <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
@@ -322,10 +455,29 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
             <MethodSelector dark={dark} options={[...WITHDRAW_OPTS]} value={dest} onChange={setDest} />
           </div>
 
+          <div className={`rounded-2xl p-4 ${dark ? "bg-slate-800/70 border border-slate-700/60" : "bg-white border border-slate-100 shadow-sm"}`}>
+            <p className={`text-xs font-medium mb-2 ${dark ? "text-slate-400" : "text-slate-500"}`}>Phone Number</p>
+            <div className="flex gap-2">
+              <span className={`flex items-center px-3 rounded-xl text-sm font-medium
+                ${dark ? "bg-slate-700 text-slate-300 border border-slate-600" : "bg-slate-100 text-slate-600 border border-slate-200"}`}>
+                🇰🇪 +254
+              </span>
+              <input
+                value={phone}
+                onChange={e => setPhone(e.target.value.replace(/\D/g, "").slice(0, 9))}
+                placeholder="712345678"
+                inputMode="numeric"
+                className={`flex-1 px-4 py-2.5 rounded-xl text-sm outline-none transition-colors ${dark ? "bg-slate-700/60 border border-slate-600 text-white placeholder:text-slate-500 focus:border-emerald-500" : "bg-slate-100 border border-slate-200 text-slate-800 placeholder:text-slate-400 focus:border-emerald-500"}`}
+              />
+            </div>
+          </div>
+
+          {error && <p className="text-sm text-rose-400">{error}</p>}
+
           <PrimaryBtn
-            label={amount ? `Withdraw ${ksh(Number(amount))} →` : "Enter amount"}
-            onClick={() => setModal("withdrawConfirm")}
-            disabled={!amount}
+            label={loading ? "Processing..." : amount ? `Withdraw ${ksh(Number(amount))} →` : "Enter amount"}
+            onClick={handleWithdraw}
+            disabled={!amount || loading}
             danger
           />
         </div>

@@ -6,7 +6,7 @@ export type TransactionType =
   | "transfer_sent"
   | "transfer_received";
 
-export type ModalType = "fundSuccess" | "sendConfirm" | "withdrawConfirm" | "notif" | null;
+export type ModalType = "fundSuccess" | "sendConfirm" | "sendSuccess" | "withdrawConfirm" | "withdrawSuccess" | "notif" | null;
 export type AppPhase  = "splash" | "auth" | "main";
 export type Screen    =
   | "dashboard" | "fund" | "send" | "withdraw"
