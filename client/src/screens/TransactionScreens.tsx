@@ -158,7 +158,7 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
     setError(null);
     setDepositMessage('Enter your M-Pesa PIN on your phone and wait for confirmation.');
 
-    const res = await apiPost("/wallet/deposit", {
+    const res = await apiPost<{ checkout_request_id: string }>("/wallet/deposit", {
       amount: Number(amount),
       phone_number: `254${normalized}`,
     });
@@ -170,7 +170,7 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
       return;
     }
 
-    const checkoutId = res.data?.checkout_request_id as string | undefined;
+    const checkoutId = res.data?.checkout_request_id;
     if (!checkoutId) {
       setLoading(false);
       setDepositMessage(null);
@@ -467,7 +467,7 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
     setLoading(true);
     setError(null);
 
-    const res = await apiPost("/wallet/withdraw", {
+    const res = await apiPost<{ withdrawal_id: number }>("/wallet/withdraw", {
       amount: Number(amount),
       phone_number: `254${normalized}`,
     });
@@ -478,7 +478,7 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
       return;
     }
 
-    const wid = res.data?.withdrawal_id as number | undefined;
+    const wid = res.data?.withdrawal_id;
     if (!wid) {
       setLoading(false);
       setError('Withdrawal started but no withdrawal id returned.');
