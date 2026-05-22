@@ -14,6 +14,9 @@ const base: Knex.Config = {
     database: process.env.DB_NAME || 'mvp_wallet',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
+      ssl: {
+        rejectUnauthorized: false, 
+      },
     charset: 'utf8mb4',
   },
   pool: { min: 2, max: 10 },

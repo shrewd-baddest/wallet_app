@@ -21,7 +21,7 @@ export const generateOtp = async (
     );
 
     // Invalidate old OTPs
-    await db("otp_verification")
+    await db("otp_verifications")
         .where({
             phone_number: phoneNumber,
             verified: false,
@@ -31,7 +31,7 @@ export const generateOtp = async (
         });
 
     // Store new OTP
-    await db("otp_verification").insert({
+    await db("otp_verifications").insert({
         phone_number: phoneNumber,
         otp_code: otp,
         expires_at: expiresAt,
@@ -48,7 +48,7 @@ export const verifyOtp = async (
     code: string
 ): Promise<true> => {
     // Find latest valid OTP
-    const record = await db("otp_verification")
+    const record = await db("otp_verifications")
         .where({
             phone_number: phoneNumber,
             otp_code: code,
@@ -72,7 +72,7 @@ export const verifyOtp = async (
     }
 
     // Mark OTP as used
-    await db("otp_verification")
+    await db("otp_verifications")
         .where({
             id: record.id,
         })
@@ -86,7 +86,7 @@ export const verifyOtp = async (
  // Optional Cleanup Utility
  
 export const deleteExpiredOtps = async (): Promise<void> => {
-    await db("otp_verification")
+    await db("otp_verifications")
         .where("expires_at", "<", new Date())
         .delete();
 };

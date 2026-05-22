@@ -128,11 +128,23 @@ export const b2cCallback = async (req: Request, res: Response): Promise<void> =>
           .increment('balance', Number(amount || withdrawal.amount));
       }
 
-      await trx('transactions')
-        .where({ wallet_id: withdrawal.wallet_id, type: 'withdrawal', status: 'pending' })
-        .orderBy('created_at', 'desc')
-        .limit(1)
-        .update({ status: isSuccess ? 'completed' : 'failed', transaction_code: receiptNumber });
+      // Check if transaction_code already exists to handle duplicate callbacks
+      const existingTx = await trx('transactions')
+        .where({ transaction_code: receiptNumber })
+        .first();
+
+      if (!existingTx) {
+        await trx('transactions')
+          .where({ wallet_id: withdrawal.wallet_id, type: 'withdrawal', status: 'pending' })
+          .orderBy('created_at', 'desc')
+          .limit(1)
+          .update({ status: isSuccess ? 'completed' : 'failed', transaction_code: receiptNumber });
+      } else {
+        // Transaction already updated, just update withdrawal if status differs
+        await trx('transactions')
+          .where({ id: existingTx.id })
+          .update({ status: isSuccess ? 'completed' : 'failed' });
+      }
     }
 
     await trx.commit();

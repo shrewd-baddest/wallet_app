@@ -29,7 +29,8 @@ const buildHeaders = (extra?: HeadersInit): HeadersInit => {
 };
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResult<T>> {
-  const url = `/api${path}`;
+  const baseUrl = 'https://wallet-app-8ol3.onrender.com';
+  const url = `${baseUrl}/api${path}`;
   console.log("API request", options.method ?? 'GET', url);
 
   const res = await fetch(url, {

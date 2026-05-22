@@ -25,7 +25,7 @@ router.post(
   [
     amountRule,
     phoneRule,
-    body('amount').isFloat({ min: 10 }).withMessage('Minimum withdrawal is KES 10'),
+    body('amount').isFloat({ min: 1}).withMessage('Minimum withdrawal is KES 1'),
   ],
   validate,
   ctrl.initiateWithdrawal
