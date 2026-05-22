@@ -25,7 +25,7 @@ app.use(helmet());
 // ── CORS ───────────────────────────────────────────────────────────────────
 app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGINS?.split(',') || '*',
+    origin: process.env.ALLOWED_ORIGINS?.split(','),
     credentials: true,
   })
 );

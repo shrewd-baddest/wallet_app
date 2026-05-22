@@ -10,7 +10,7 @@ const CB_BASE   = process.env.MPESA_CALLBACK_BASE_URL;
 
 const B2C_SHORTCODE = process.env.MPESA_B2C_SHORTCODE;
 const INITIATOR     = process.env.MPESA_B2C_INITIATOR_NAME;
-const INITIATOR_PWD = process.env.MPESA_B2C_INITIATOR_PASSWORD;
+const  SECURITY_CREDENTIALS = process.env.MPESA_B2C_SECURITY_CREDENTIALS;
 
 // ── Token cache ────────────────────────────────────────────────────────────
 let _token: string | null = null;
@@ -27,8 +27,7 @@ const getAccessToken = async (): Promise<string> => {
     );
 
     _token = data.access_token;
-    _tokenExpiry = Date.now() + (data.expires_in - 60) * 1000;
-    return _token;
+_tokenExpiry = Date.now() + (Number(data.expires_in) - 60) * 1000;    return _token;
   } catch (err: any) {
     logger.error('M-Pesa token fetch failed:', err.message || err);
     throw err;
@@ -115,8 +114,9 @@ export const b2cPayment = async (
   const token = await getAccessToken();
 
   const payload = {
+    OriginatorConversationID: `b2c_${Date.now()}`,
     InitiatorName:      INITIATOR,
-    SecurityCredential: INITIATOR_PWD,
+    SecurityCredential: SECURITY_CREDENTIALS,
     CommandID:          'BusinessPayment',
     Amount:             Math.ceil(amount),
     PartyA:             B2C_SHORTCODE,
@@ -129,7 +129,7 @@ export const b2cPayment = async (
 
   logger.debug(`B2C payout → ${phoneNumber} KES ${amount}`);
   try {
-    const { data } = await axios.post(`${BASE}/mpesa/b2c/v3/paymentrequest`, payload, {
+    const { data } = await axios.post(`${BASE}/mpesa/b2c/v1/paymentrequest`, payload, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
