@@ -261,6 +261,9 @@ export function FundScreen({ dark, setScreen, setModal }: ScreenProps) {
 
           {error && <p className="text-sm text-rose-400">{error}</p>}
           {depositMessage && !error && <p className="text-sm text-slate-400">{depositMessage}</p>}
+          {checkoutRequestId && !error && (
+            <p className="text-xs text-slate-500">Reference: {checkoutRequestId}</p>
+          )}
 
           <PrimaryBtn
             label={loading ? "Processing..." : amount ? `Fund ${ksh(Number(amount))} →` : "Enter amount"}
@@ -593,6 +596,10 @@ export function WithdrawScreen({ dark, setScreen, setModal }: ScreenProps) {
           </div>
 
           {error && <p className="text-sm text-rose-400">{error}</p>}
+          {withdrawMessage && !error && <p className="text-sm text-slate-400">{withdrawMessage}</p>}
+          {withdrawalId && !error && (
+            <p className="text-xs text-slate-500">Reference: {withdrawalId}</p>
+          )}
 
           <PrimaryBtn
             label={loading ? "Processing..." : amount ? `Withdraw ${ksh(Number(amount))} →` : "Enter amount"}
