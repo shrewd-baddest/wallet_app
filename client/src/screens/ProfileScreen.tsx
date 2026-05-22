@@ -46,15 +46,20 @@ export default function ProfileScreen({ dark, onLogout }: Props) {
 
     useEffect(() => {
         const loadProfile = async () => {
-            const res = await apiGet<ProfilePayload>("/profile");
+            try {
+                const res = await apiGet<ProfilePayload>("/profile");
 
-            if (res.success && res.data) {
-                setData(res.data);
-            } else {
-                setError(res.message || "Unable to load profile data.");
+                if (res.success && res.data) {
+                    setData(res.data);
+                } else {
+                    setError(res.message || "Unable to load profile data.");
+                }
+            } catch (error: unknown) {
+                const err = error instanceof Error ? error.message : String(error ?? "Unable to load profile data.");
+                setError(err);
+            } finally {
+                setLoading(false);
             }
-
-            setLoading(false);
         };
 
         loadProfile();

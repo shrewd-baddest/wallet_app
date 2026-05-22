@@ -30,30 +30,40 @@ const buildHeaders = (extra?: HeadersInit): HeadersInit => {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<ApiResult<T>> {
   const baseUrl = 'https://wallet-app-8ol3.onrender.com';
+  //  const baseUrl =  'http://localhost:5000';
   const url = `${baseUrl}/api${path}`;
   console.log("API request", options.method ?? 'GET', url);
 
-  const res = await fetch(url, {
-    credentials: 'include',
-    ...options,
-    headers: buildHeaders(options.headers as HeadersInit),
-  });
+  try {
+    const res = await fetch(url, {
+      credentials: 'include',
+      ...options,
+      headers: buildHeaders(options.headers as HeadersInit),
+    });
 
-  const body = await res.json().catch(() => ({}));
-  console.log("API response", res.status, url, body);
+    const body = await res.json().catch(() => ({}));
+    console.log("API response", res.status, url, body);
 
-  if (!res.ok) {
+    if (!res.ok) {
+      return {
+        success: false,
+        message: (body && (body.errors?.[0].message || body.message)) ?? `Request failed with status ${res.status}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: body.message,
+      data: body.data ?? body,
+    };
+  } catch (error: unknown) {
+    console.error("API request failed", error);
+    const message = error instanceof Error ? error.message : String(error ?? 'Network error while connecting to API');
     return {
       success: false,
-      message: (body && (body.errors?.[0].message || body.message)) ?? `Request failed with status ${res.status}`,
+      message,
     };
   }
-
-  return {
-    success: true,
-    message: body.message,
-    data: body.data ?? body,
-  };
 }
 
 export const apiGet = <T = unknown>(path: string): Promise<ApiResult<T>> => request(path, { method: 'GET' });

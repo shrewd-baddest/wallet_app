@@ -20,14 +20,19 @@ export default function HistoryScreen({ dark }: Props) {
         const loadTransactions = async () => {
             setLoading(true);
             setError(null);
-            const res = await apiGet<{ transactions: Transaction[] }>("/transactions?limit=100");
-            if (!res.success || !res.data) {
-                setError(res.message || "Unable to load transactions.");
-                setTransactions([]);
-            } else {
-                setTransactions(res.data.transactions);
+            try {
+                const res = await apiGet<{ transactions: Transaction[] }>("/transactions?limit=100");
+                if (!res.success || !res.data) {
+                    setError(res.message || "Unable to load transactions.");
+                    setTransactions([]);
+                } else {
+                    setTransactions(res.data.transactions);
+                }
+            } catch (error: any) {
+                setError(error?.message || "Unable to load transactions.");
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
         loadTransactions();
@@ -39,10 +44,10 @@ export default function HistoryScreen({ dark }: Props) {
 
     const totalIn = transactions
         .filter((t) => t.type === "deposit" || t.type === "transfer_received")
-        .reduce((a, t) => a + t.amount, 0);
+        .reduce((a, t) => a + Number(t.amount), 0);
     const totalOut = transactions
         .filter((t) => t.type === "withdrawal" || t.type === "transfer_sent")
-        .reduce((a, t) => a + t.amount, 0);
+        .reduce((a, t) => a + Number(t.amount), 0);
 
     return (
         <div className={`min-h-full pb-10 ${dark ? "bg-slate-950" : "bg-slate-50"}`}>
