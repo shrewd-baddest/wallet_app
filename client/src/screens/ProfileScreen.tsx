@@ -111,7 +111,7 @@ export default function ProfileScreen({ dark, onLogout }: Props) {
                 )}
 
                 <div className="flex items-center gap-4 mb-5">
-                    <div className="flex items-center justify-center w-16 h-16 text-xl font-extrabold shadow-md rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 text-slate-950 shadow-emerald-500/25">
+                    <div className="flex items-center justify-center w-16 h-16 text-xl font-extrabold shadow-md rounded-2xl bg-linear-to-br from-emerald-500 to-emerald-600 text-slate-950 shadow-emerald-500/25">
                         {initials}
                     </div>
                     <div className="flex-1 min-w-0">
