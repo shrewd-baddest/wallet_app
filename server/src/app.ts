@@ -19,6 +19,9 @@ import profileRoutes from './modules/profile/profile.routes';
 
 const app = express();
 
+// ── Trust proxy for rate limiting with X-Forwarded-For ────────────────────
+app.set('trust proxy', 1);
+
 // ── Security headers ───────────────────────────────────────────────────────
 app.use(helmet());
 
